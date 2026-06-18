@@ -1,7 +1,6 @@
 import os
 import tempfile
 import json
-import chromadb
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field, field_validator
 try:
@@ -9,15 +8,22 @@ try:
 except ImportError:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_chroma import Chroma
 from langchain_core.tools import tool
 from .config import settings
 
-# Initialize persistent Chroma client (supports local or cloud HTTP server)
-if settings.chroma_host:
-    persistent_client = chromadb.HttpClient(host=settings.chroma_host, port=settings.chroma_port)
-else:
-    persistent_client = chromadb.PersistentClient(path="./chroma_db")
+_persistent_client = None
+
+def _get_chroma_client():
+    global _persistent_client
+    if _persistent_client is not None:
+        return _persistent_client
+    import chromadb
+    if settings.chroma_host:
+        _persistent_client = chromadb.HttpClient(host=settings.chroma_host, port=settings.chroma_port)
+    else:
+        _persistent_client = chromadb.PersistentClient(path="./chroma_db")
+    return _persistent_client
+
 METADATA_FILE = "./chroma_db/collection_metadata.json"
 
 # Helper functions to load/save thread metadata to disk
@@ -55,8 +61,9 @@ def _get_retriever(thread_id: Optional[str]):
     collection_name = f"thread_{str(thread_id).replace('-', '_')}"
     if thread_has_document(thread_id):
         embeddings = get_embeddings()
+        from langchain_chroma import Chroma
         vector_store = Chroma(
-            client=persistent_client,
+            client=_get_chroma_client(),
             collection_name=collection_name,
             embedding_function=embeddings,
         )
@@ -114,12 +121,13 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
         
         # Reset/delete collection if it already exists to index fresh
         try:
-            persistent_client.delete_collection(collection_name)
+            _get_chroma_client().delete_collection(collection_name)
         except Exception:
             pass
 
+        from langchain_chroma import Chroma
         vector_store = Chroma(
-            client=persistent_client,
+            client=_get_chroma_client(),
             collection_name=collection_name,
             embedding_function=embeddings,
         )
@@ -181,7 +189,7 @@ def rag_tool(query: str, thread_id: str) -> dict:
 def thread_has_document(thread_id: str) -> bool:
     collection_name = f"thread_{str(thread_id).replace('-', '_')}"
     try:
-        col = persistent_client.get_collection(collection_name)
+        col = _get_chroma_client().get_collection(collection_name)
         return col.count() > 0
     except Exception:
         return False
