@@ -1,0 +1,29 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+myvenvi/
+.venv-1/
+
+# Secrets & Local Configurations
+.env
+.evn
+
+# Databases & Local Vector Stores
+*.db
+*.db-wal
+*.db-shm
+chroma_db/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

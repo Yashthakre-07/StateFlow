@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  stateflow:
+    build: .
+    container_name: stateflow_app
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      # Persist SQLite databases and ChromaDB collections locally
+      - ./chroma_db:/app/chroma_db
+      - ./chatbot.db:/app/chatbot.db
+    restart: unless-stopped
