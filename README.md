@@ -3,6 +3,7 @@
 # 🌊 StateFlow
 ### Next-Generation Agentic AI Assistant
 
+[![Live App](https://img.shields.io/badge/Live_App-Streamlit_Cloud-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://stateflow-by-yt.streamlit.app/)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Frontend-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![LangGraph](https://img.shields.io/badge/Orchestrator-LangGraph-0052FF?style=for-the-badge&logo=python&logoColor=white)](https://langchain-ai.github.io/langgraph/)
@@ -11,19 +12,21 @@
 [![LangSmith](https://img.shields.io/badge/Observability-LangSmith-F97316?style=for-the-badge)](https://smith.langchain.com)
 [![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 [![RAGAS](https://img.shields.io/badge/Evaluation-RAGAS-8B5CF6?style=for-the-badge)](https://docs.ragas.io)
-[![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
 
 <br/>
 
 **StateFlow** is a production-grade, agentic AI assistant built on **LangGraph's finite-state machine architecture**, powered by **Google Gemini 2.5 Flash**, and styled as a pixel-perfect **ChatGPT Dark Mode clone** — all in Streamlit.
 
-It features **Hybrid RAG** (ChromaDB + BM25 ensemble), **RAGAS evaluation**, **MCP tool integrations**, **LangSmith tracing**, **live token economics**, and a **fully Dockerized deployment pipeline**.
+---
+
+### 🌐 Live Deployment
+🚀 **Try the live app here:** **[StateFlow on Streamlit Community Cloud](https://stateflow-by-yt.streamlit.app/)**
+
+---
 
 [🚀 Quick Start](#-setup--installation) · [📸 Demo](#-demo--interface) · [🏗️ Architecture](#️-system-architecture) · [✨ Features](#-features--capabilities) · [📊 RAGAS Evaluation](#-evaluation--ai-quality-ragas)
 
 </div>
-
----
 
 ## 📸 Demo & Interface
 
@@ -278,6 +281,27 @@ LANGCHAIN_PROJECT="StateFlow"
 ```bash
 streamlit run frontend/streamlit.py
 ```
+
+---
+
+### Option C — Streamlit Community Cloud (Production Deployment)
+
+This repository is fully optimized for continuous delivery and one-click deployment to Streamlit Community Cloud:
+
+1. **Deploy Repository**: Log in at [share.streamlit.io](https://share.streamlit.io/) with your GitHub account.
+2. **App Details**: Click **New App** and select:
+   - **Repository**: `Yashthakre-07/StateFlow`
+   - **Branch**: `master`
+   - **Main file path**: `frontend/streamlit.py`
+3. **Secrets Setup**: In **Advanced settings...** -> **Secrets**, paste your API keys:
+   ```toml
+   API_KEY = "your-gemini-api-key-here"
+   GEMINI_API_KEY = "your-gemini-api-key-here"
+   ALPHA_VANTAGE_KEY = "your-alpha-vantage-key"
+   ```
+4. **Python Version Compatibility**:
+   - The repository contains a `.python-version` file pinning deployment to **Python 3.11** (to avoid startup failures/crashes with experimental Python versions like 3.14 on Streamlit Cloud).
+   - If using a Python 3.14 environment, add `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION = "python"` to your Streamlit secrets to prevent protobuf compatibility exceptions.
 
 ---
 
