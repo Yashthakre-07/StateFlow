@@ -517,7 +517,7 @@ if user_input:
                                 )
 
                         if isinstance(message_chunk, AIMessage):
-                            yield message_chunk.content
+                            yield extract_text_content(message_chunk.content)
                 except Exception as e:
                     yield f"⚠️ An error occurred: {str(e)}"
 
