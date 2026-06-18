@@ -4,44 +4,60 @@ database.py — Thread Persistence & LangGraph Checkpointing
 Architecture:
   - ChromaDB (PersistentClient): Primary store for thread registry & session metadata.
     Each user's threads are tracked as documents in the `thread_registry` collection.
+    ChromaDB is imported lazily so the module loads safely in all environments.
   - SqliteSaver (LangGraph): Handles LangGraph graph-state checkpointing internally.
     Chroma cannot replace this layer (requires LangGraph's binary serialization format).
 """
 
-import json
 import sqlite3
 from typing import Optional
 from datetime import datetime, timezone
 
-import chromadb
 from langgraph.checkpoint.sqlite import SqliteSaver
 from .config import settings
 
 
 # ─────────────────────────────────────────────────
 # 1.  ChromaDB — Primary Thread Registry Database
+#     (lazy import — graceful fallback if not installed)
 # ─────────────────────────────────────────────────
 
-if settings.chroma_host:
-    _chroma_client = chromadb.HttpClient(
-        host=settings.chroma_host,
-        port=settings.chroma_port,
-    )
-else:
-    _chroma_client = chromadb.PersistentClient(path="./chroma_db")
+_chroma_client = None
+_thread_registry = None
 
-# Dedicated collection to track conversation threads (separate from RAG collections)
-_thread_registry: chromadb.Collection = _chroma_client.get_or_create_collection(
-    name="thread_registry",
-    metadata={"hnsw:space": "cosine"},
-)
+
+def _get_chroma_registry():
+    """Lazily initialize ChromaDB client and thread_registry collection."""
+    global _chroma_client, _thread_registry
+    if _thread_registry is not None:
+        return _thread_registry
+    try:
+        import chromadb
+        if settings.chroma_host:
+            _chroma_client = chromadb.HttpClient(
+                host=settings.chroma_host,
+                port=settings.chroma_port,
+            )
+        else:
+            _chroma_client = chromadb.PersistentClient(path="./chroma_db")
+        _thread_registry = _chroma_client.get_or_create_collection(
+            name="thread_registry",
+            metadata={"hnsw:space": "cosine"},
+        )
+    except Exception:
+        _thread_registry = None
+    return _thread_registry
 
 
 def register_thread(thread_id: str, username: Optional[str] = None) -> None:
     """Register a new thread in the ChromaDB thread registry."""
+    registry = _get_chroma_registry()
+    if registry is None:
+        return  # ChromaDB not available — skip silently
+
     doc_id = str(thread_id)
     try:
-        existing = _thread_registry.get(ids=[doc_id])
+        existing = registry.get(ids=[doc_id])
         if existing and existing["ids"]:
             return  # already registered
     except Exception:
@@ -51,33 +67,38 @@ def register_thread(thread_id: str, username: Optional[str] = None) -> None:
         "username": username or "default_user",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    _thread_registry.add(
-        ids=[doc_id],
-        documents=[doc_id],          # store thread_id as the document text
-        metadatas=[meta],
-    )
+    try:
+        registry.add(
+            ids=[doc_id],
+            documents=[doc_id],
+            metadatas=[meta],
+        )
+    except Exception:
+        pass
 
 
 def retrieve_all_threads(username: Optional[str] = None) -> list:
     """
-    Return all thread IDs from ChromaDB for the given user.
-    Falls back to SqliteSaver listing if ChromaDB is empty (backward-compat).
+    Return all thread IDs for the given user.
+    Queries ChromaDB first; falls back to scanning SqliteSaver checkpoints.
     """
-    try:
-        results = _thread_registry.get(
-            where={"username": username or "default_user"} if username else None,
-            include=["metadatas"],
-        )
-        if results and results["ids"]:
-            # Sort by created_at descending (newest first)
-            paired = list(zip(results["ids"], results["metadatas"]))
-            paired.sort(
-                key=lambda x: x[1].get("created_at", ""),
-                reverse=True,
+    registry = _get_chroma_registry()
+    if registry is not None:
+        try:
+            results = registry.get(
+                where={"username": username or "default_user"} if username else None,
+                include=["metadatas"],
             )
-            return [t[0] for t in paired]
-    except Exception:
-        pass
+            if results and results["ids"]:
+                # Sort by created_at descending (newest first)
+                paired = list(zip(results["ids"], results["metadatas"]))
+                paired.sort(
+                    key=lambda x: x[1].get("created_at", ""),
+                    reverse=True,
+                )
+                return [t[0] for t in paired]
+        except Exception:
+            pass
 
     # ── Backward-compat fallback: scan SqliteSaver ──
     all_threads: set = set()
@@ -96,8 +117,11 @@ def retrieve_all_threads(username: Optional[str] = None) -> list:
 
 def get_thread_metadata(thread_id: str) -> dict:
     """Fetch stored metadata for a specific thread from ChromaDB."""
+    registry = _get_chroma_registry()
+    if registry is None:
+        return {}
     try:
-        result = _thread_registry.get(ids=[str(thread_id)], include=["metadatas"])
+        result = registry.get(ids=[str(thread_id)], include=["metadatas"])
         if result and result["metadatas"]:
             return result["metadatas"][0]
     except Exception:
@@ -107,12 +131,15 @@ def get_thread_metadata(thread_id: str) -> dict:
 
 def update_thread_title(thread_id: str, title: str) -> None:
     """Update the human-readable title of a thread stored in ChromaDB."""
+    registry = _get_chroma_registry()
+    if registry is None:
+        return
     try:
-        existing = _thread_registry.get(ids=[str(thread_id)], include=["metadatas"])
+        existing = registry.get(ids=[str(thread_id)], include=["metadatas"])
         if existing and existing["metadatas"]:
             meta = existing["metadatas"][0]
             meta["title"] = title[:80]
-            _thread_registry.update(ids=[str(thread_id)], metadatas=[meta])
+            registry.update(ids=[str(thread_id)], metadatas=[meta])
     except Exception:
         pass
 
