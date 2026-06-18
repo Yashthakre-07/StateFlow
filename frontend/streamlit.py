@@ -1,5 +1,7 @@
-import sys
 import os
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
+import sys
 import uuid
 import queue
 import streamlit as st
