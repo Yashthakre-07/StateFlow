@@ -19,6 +19,16 @@ from .tools import tools as basic_tools
 from .rag import rag_tool, ingest_pdf, thread_has_document, thread_document_metadata
 from .mcp import load_mcp_tools, submit_async_task
 
+# Explicitly re-export so frontend can import from backend.app
+__all__ = [
+    "chatbot",
+    "retrieve_all_threads",
+    "register_thread",
+    "submit_async_task",
+    "ingest_pdf",
+    "thread_document_metadata",
+]
+
 # 1. Initialize LLM using centralized config settings
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
