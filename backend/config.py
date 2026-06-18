@@ -4,7 +4,7 @@ from pydantic import Field
 from typing import Optional
 
 class Settings(BaseSettings):
-    api_key: str = Field(alias="API_KEY")
+    api_key: Optional[str] = Field(default=None, alias="API_KEY")
     gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
     google_api_key: Optional[str] = Field(default=None, alias="GOOGLE_API_KEY")
     alpha_vantage_key: str = Field(default="C9PE94QUEW9VWGFM", alias="ALPHA_VANTAGE_KEY")
@@ -20,8 +20,10 @@ class Settings(BaseSettings):
         "populate_by_name": True
     }
 
-    # Ensure gemini and google API keys fall back to api_key if not explicitly defined
+    # Ensure keys fall back to whichever is available
     def model_post_init(self, __context):
+        if not self.api_key:
+            self.api_key = self.gemini_api_key or self.google_api_key
         if not self.gemini_api_key:
             self.gemini_api_key = self.api_key
         if not self.google_api_key:
