@@ -13,12 +13,11 @@ if parent_dir not in sys.path:
 from backend.app import (
     chatbot,
     retrieve_all_threads,
+    register_thread,
     submit_async_task,
     ingest_pdf,
     thread_document_metadata,
 )
-# Import register_thread directly from its source module
-from backend.database import register_thread
 
 # Set page config
 st.set_page_config(page_title="StateFlow Agentic Assistant", page_icon="🤖", layout="wide")
