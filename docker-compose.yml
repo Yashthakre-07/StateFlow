@@ -13,3 +13,22 @@ services:
       - ./chroma_db:/app/chroma_db
       - ./chatbot.db:/app/chatbot.db
     restart: unless-stopped
+    depends_on:
+      - postgres_db
+
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: stateflow_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin_secure_pass
+      POSTGRES_DB: stateflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+
