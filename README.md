@@ -80,11 +80,18 @@ Full evaluation pipeline in [`ragas_evaluation.ipynb`](ragas_evaluation.ipynb) c
 | **Answer Relevancy** | 0.81 | **0.94** (queries rephrased on failure) |
 | **Context Recall** | 0.78 | **0.91** (fallback web search backup) |
 
+### 🧪 Mock Unit & Integration Test Suite
+To ensure production-grade reliability and zero regressions, a mocked test suite using `pytest` is configured under `tests/`. LLM calls are patched using `unittest.mock` to allow running the tests instantly without requiring API keys or incurring token costs.
+- **Unit Tests**: Verifies document relevance grading, query re-writing, and grounding/hallucination checks.
+- **Integration Tests**: Confirms correct routing (CRAG web fallback triggers) and validates the 3-cycle safety loop cap.
+
+Run the test suite:
 ```bash
-jupyter notebook ragas_evaluation.ipynb
+pytest tests/
 ```
 
 ---
+
 
 ## 🏗️ System Architecture
 
