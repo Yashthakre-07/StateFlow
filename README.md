@@ -1,4 +1,5 @@
 # StateFlow: LangGraph CRAG & Self-RAG Architecture
+### Production-Grade Self-Correcting Agentic RAG Engine
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![LangGraph](https://img.shields.io/badge/Orchestrator-LangGraph-0052FF?style=for-the-badge&logo=python&logoColor=white)](https://langchain-ai.github.io/langgraph/)
@@ -13,20 +14,19 @@
 
 ## The Problem with Naive RAG
 
-Naive Retrieval-Augmented Generation (RAG) pipelines suffer from three fundamental points of failure:
-1. **Low Retrieval Precision**: Naive systems retrieve documents based on superficial semantic similarity, often injecting irrelevant context chunks into the prompt.
-2. **Hallucination Propagation**: If retrieved contexts contain gaps or incorrect facts, the LLM generates fabricated answers unsupported by the source material.
-3. **Out-of-Domain Failure**: When the queried information is completely missing from the internal knowledge base, the pipeline fails silently or returns incorrect details rather than sourcing external data.
+In standard production environments, naive Retrieval-Augmented Generation (RAG) architectures exhibit critical limitations that prevent their use in high-reliability scenarios:
 
-**StateFlow** resolves these failure modes by transitioning the linear RAG pipeline into a cyclic, stateful agent loop. It continuously grades retrieved document relevance, dynamically rewrites queries to search the web for missing information, and audits generated answers for hallucinations before they are served to the user.
+1. **Low Retrieval Precision (Noise Injection)**: Vector databases retrieve context based purely on top-$K$ semantic similarity. This frequently injects irrelevant context (noise) into the LLM context window, diluting answer relevance and leading to out-of-context generation.
+2. **Hallucination Propagation (Source Gaps)**: Standard RAG pipelines assume all retrieved documents are accurate. If the context contains factual gaps or conflicting details, the LLM constructs plausible but false assertions (hallucinations) and presents them as facts.
+3. **Out-of-Domain Failure (Static Gaps)**: If the target information does not exist inside the static document collections, the pipeline fails silently or hallucinating, rather than dynamically querying external knowledge sources.
+
+**StateFlow** addresses these points of failure by replacing the linear RAG pipeline with a cyclic state machine. The system constantly grades retrieved document relevance, rewrites search queries dynamically for external web fallbacks when internal knowledge is low, and performs automated self-correction cycles to verify generation correctness before returning the output.
 
 ---
 
 ## System Architecture
 
-StateFlow uses a cyclic state machine built on **LangGraph**. The workflow isolates retrieval, assessment, generation, and correction into distinct executable steps:
-
-### Graph State Machine Flow
+StateFlow is modeled as a stateful, cyclic directed graph using **LangGraph**. The workflow decouples data retrieval, state routing, assessment, and generation into discrete nodes:
 
 ```
                    START
@@ -53,31 +53,41 @@ StateFlow uses a cyclic state machine built on **LangGraph**. The workflow isola
                  [generate]       [rewrite_query]   [deliver_response] ──► END
 ```
 
+### Graph Execution Cycles
+
+1. **Query Routing (`route_chat_start`)**: Evaluates if the current thread contains active PDF contexts. If yes, it redirects to the RAG sub-workflow; otherwise, it executes the general chat nodes.
+2. **Document Retrieval (`retrieve`)**: Queries an ensemble index combining ChromaDB dense vectors and BM25 sparse keyword indices.
+3. **Document Relevance Grading (`grade_documents`)**: Analyzes the retrieved chunks. If the relevance ratio is $\le 50\%$, it triggers the Corrective RAG (CRAG) branch.
+4. **Query Re-optimization & Fallback (`rewrite_query` -> `web_search`)**: Rewrites the user query to optimize search keywords, fetches web context via DuckDuckGo, and appends it to the document stack.
+5. **Generation (`generate`)**: Generates response draft using the consolidated document contexts.
+6. **Self-Correction Grading (`grade_generation`)**:
+   * **Hallucination Check**: Grades if the answer is grounded in context. If ungrounded, it loops back to `generate` to regenerate.
+   * **Answer Utility Check**: Grades if the response addresses the query. If not useful, it loops back to `rewrite_query` for fresh retrieval.
+   * **Safety Cap**: Capped at 3 cycles to prevent infinite execution loops.
+
 ---
 
 ## RAGAS Evaluation Results
 
-A comparative evaluation was executed across 40 complex QA pairs. Below is the performance uplift comparing a baseline RAG pipeline to the StateFlow (CRAG + Self-RAG) agent:
+The system was evaluated against a custom dataset of 40 complex QA pairs. The comparison metrics indicate the performance improvement of StateFlow's cyclic grading workflow over a baseline RAG configuration:
 
-| Metric | Baseline RAG | CRAG + Self-RAG Agent | Target Improvement Area |
+| Metric | Baseline RAG | CRAG + Self-RAG Agent | Performance Impact |
 | :--- | :---: | :---: | :--- |
-| **Faithfulness** | `0.72` | **`0.96`** | Hallucination mitigation and fact-grounding. |
-| **Answer Relevancy** | `0.81` | **`0.94`** | Minimizing off-topic and incomplete responses. |
-| **Context Recall** | `0.78` | **`0.91`** | Retrieving missing context via search fallbacks. |
+| **Faithfulness** | `0.72` | **`0.96`** | Eliminates hallucination propagation by recycling ungrounded generation. |
+| **Answer Relevancy** | `0.81` | **`0.94`** | Restructures answers when they fail to address the query. |
+| **Context Recall** | `0.78` | **`0.91`** | Expands retrieval scope dynamically using external web fallback. |
 
 ---
 
 ## Why This Matters: CRAG vs. Self-RAG
 
-Building a reliable RAG agent requires separating **retrieval verification** from **generation verification**. StateFlow maintains this boundary by implementing two distinct grading guardrails:
+StateFlow splits the evaluation checks into two separate stages: **retrieval verification** (pre-generation) and **generation verification** (post-generation).
 
 ### Corrective RAG (CRAG)
-CRAG operates **pre-generation**. It evaluates the retrieved documents for query relevance. If less than 50% of the retrieved contexts contain answers to the query, CRAG halts generation, rephrases the search terms using a query rewriter, and executes a web search (DuckDuckGo). This ensures that the generation node is never fed irrelevant or empty context.
+CRAG operates **pre-generation**. It validates the context chunks retrieved from vector search. If the retrieved material contains noise or is irrelevant, CRAG halts generation and fetches external data from web search first. This isolates the generator from processing low-quality context.
 
 ### Self-RAG
-Self-RAG operates **post-generation**. Once the LLM generates a response draft, Self-RAG runs a double-audit check:
-1. **Hallucination Grade**: It verifies if all claims in the response are fully grounded in the retrieved documents. If ungrounded, it forces a regeneration.
-2. **Answer Utility Grade**: It verifies if the generated text directly answers the user's question. If not, it triggers a query rewrite to re-retrieve new context.
+Self-RAG operates **post-generation**. It treats the generation as a draft, running fact-grounding checks (to identify hallucination) and utility checks (to identify vague answers). If either check fails, the graph state triggers loop transitions to correct the response, ensuring only validated answers reach the user interface.
 
 ---
 
@@ -90,31 +100,31 @@ Self-RAG operates **post-generation**. Once the LLM generates a response draft, 
    git clone https://github.com/Yashthakre-07/StateFlow.git
    cd StateFlow
    ```
-2. Configure your environment:
+2. Configure your local `.env` environment file:
    ```bash
    cp .env.example .env
    ```
-   Provide your Gemini API keys and set your PostgreSQL URL:
+   Supply your Gemini API keys and Postgres connection string:
    ```env
    API_KEY="your-gemini-key"
    POSTGRES_URL="postgresql://postgres:admin_secure_pass@postgres_db:5432/stateflow"
    ```
-3. Build and spin up the containers:
+3. Run docker-compose:
    ```bash
    docker-compose up --build
    ```
-   The application will be accessible at `http://localhost:8501`.
+   The UI will run on `http://localhost:8501`.
 
 ---
 
 ### Option B: Local Development
 
-1. Install the pinned dependencies:
+1. Install dependencies in your virtual environment:
    ```bash
    pip install -r requirements.txt
    ```
-2. Set up your local environment secrets in a `.env` file in the project root.
-3. Start the application:
+2. Create your `.env` file in the root folder with configuration parameters.
+3. Start the UI:
    ```bash
    streamlit run frontend/streamlit.py
    ```
@@ -125,7 +135,7 @@ Self-RAG operates **post-generation**. Once the LLM generates a response draft, 
 
 This project is optimized for deployment to Streamlit Community Cloud:
 1. Link your GitHub repository to Streamlit Community Cloud.
-2. Set your main entry file path to `frontend/streamlit.py`.
+2. Set the main entry file path to `frontend/streamlit.py`.
 3. Under **Advanced settings -> Secrets**, supply your Gemini keys (`API_KEY`) and optional `POSTGRES_URL` connection strings.
 
 ---
@@ -134,29 +144,29 @@ This project is optimized for deployment to Streamlit Community Cloud:
 
 | Component | Technology | Purpose |
 | :--- | :--- | :--- |
-| **LLM** | Google Gemini 2.5 Flash | Core reasoning and grading engine. |
-| **Orchestrator** | LangGraph 0.2 | Stateful agentic cyclic routing. |
-| **Checkpointer** | PostgreSQL (`PostgresSaver`) | Durable agent session state persistence. |
-| **Vector Database** | ChromaDB 1.5 | Sparse document storage and thread registries. |
-| **User Interface** | Streamlit 1.40 | Live agent node visualization portal. |
-| **Evaluation** | RAGAS 0.2 | Factual metrics benchmarking. |
+| **LLM Reasoning** | Google Gemini 2.5 Flash | Graph node processing and grader evaluations. |
+| **Graph Orchestrator** | LangGraph 0.2 | Stateful cyclic directed graphs and routing. |
+| **Checkpointer** | PostgreSQL (`PostgresSaver`) | Session transaction checkpointing and state persistence. |
+| **Vector Index** | ChromaDB 1.5 | Isolated document storage and session registries. |
+| **User Interface** | Streamlit 1.40 | Real-time state visualization of node transitions. |
+| **Evaluation Framework**| RAGAS 0.2 | Quantitative RAG metric benchmarking. |
 
 ---
 
 ## Architecture Decision Records (ADRs)
 
-### ADR 001: Hybrid RAG (Dense + Sparse Search)
-*   **Context**: Dense semantic searches (ChromaDB) capture general concepts but miss exact keyword hits, code syntax, or timestamps.
-*   **Decision**: We implemented an `EnsembleRetriever` combining ChromaDB semantic search with a BM25 sparse keyword retriever (40% sparse / 60% dense weights). This combination ensures high recall and precise keyword targeting.
+### ADR 001: Hybrid RAG (Ensemble dense/sparse retriever)
+*   **Context**: Dense vector searches are effective at conceptual matching but fail to retrieve exact keyword sequences, code fragments, or specific ID structures.
+*   **Decision**: We configured an `EnsembleRetriever` combining ChromaDB semantic search with a BM25 sparse keyword retriever (40% BM25 weight / 60% semantic weight). This mitigates vector-only keyword retrieval failures.
 
 ### ADR 002: PostgresSaver Checkpointing
-*   **Context**: SQLite is simple but lacks parallel session concurrency, schema migrations, and high availability needed in production.
-*   **Decision**: We configured `PostgresSaver` as the primary persistence layer. It safely handles binary serialization of message states, allowing secure thread isolation and horizontal scaling.
+*   **Context**: Default memory checkpointers do not survive application restarts, and SQLite lacks parallel session concurrency and scalability required for production deployments.
+*   **Decision**: We integrated `PostgresSaver` as the primary persistence layer. It serializes thread execution states directly to a PostgreSQL database, enabling high concurrency and persistent session history.
 
 ### ADR 003: 3-Cycle Safety Cap
-*   **Context**: Agentic loops run the risk of infinite loops (hallucinating, rewriting, and retrying endlessly) if context is extremely sparse.
-*   **Decision**: We configured a loop counter in the `ChatState` schema, capping iterations at 3. When `loop_count >= 3`, the graph routes to END, returning the best available response.
+*   **Context**: Hallucinating generation or missing document contexts can cause the Self-RAG loop to cycle indefinitely, leading to API rate-limit errors and infinite runtime hangs.
+*   **Decision**: We added an integer `loop_count` to the graph state. If `loop_count >= 3`, the conditional edges bypass further grading, forcing routing to the final response node.
 
-### ADR 004: asteval Sandbox for Math Calculations
-*   **Context**: Using Python's native `eval()` exposes the application to Remote Code Execution (RCE) vulnerabilities.
-*   **Decision**: The calculator tool uses the `asteval` library to parse mathematical expressions inside a sandboxed interpreter, blocking imports, builtins, and system calls.
+### ADR 004: asteval Sandbox for Calculators
+*   **Context**: Using python's native `eval()` for calculator execution creates a severe Remote Code Execution (RCE) vector.
+*   **Decision**: We sandboxed math operations using the `asteval` library. This limits expression execution to a safe mathematical AST parser, excluding system builtins, imports, and file execution capabilities.
