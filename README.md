@@ -164,13 +164,13 @@ Python's native `eval()` function evaluates arbitrary input strings, exposing th
 
 ---
 
-## Running RAGAS Evaluation
+## Running the Test Suite & Evaluation
 
-The evaluation suite validates RAG performance across faithfulness, answer relevancy, and recall metrics. Run the notebook using:
+The unit and integration test suite validates state machine routing, fallback logic, and loop caps using mocked LLM bindings. Execute the test suite with:
 ```bash
-pytest tests/
+python -m pytest
 ```
-The test suite mocks LLM responses to test graph routing, while the evaluation notebook benchmarks actual generation quality against a 40 QA pair dataset.
+The Ragas evaluation suite is located in `ragas_evaluation.ipynb` and benchmarks generation quality against a 40 QA pair dataset.
 
 ---
 
