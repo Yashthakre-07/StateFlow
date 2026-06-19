@@ -496,28 +496,36 @@ if user_input:
             status_holder = {"box": None}
 
             def stream_response():
-                # Run stream generator
                 try:
-                    for message_chunk, _ in chatbot.stream(
-                        {"messages": [HumanMessage(content=user_input)]},
+                    # Use updates mode to track active nodes and display status blocks
+                    for event in chatbot.stream(
+                        {"messages": [HumanMessage(content=user_input)], "query": user_input, "loop_count": 0},
                         config=CONFIG,
-                        stream_mode="messages",
+                        stream_mode="updates",
                     ):
-                        if isinstance(message_chunk, ToolMessage):
-                            tool_name = getattr(message_chunk, "name", "tool")
-                            if status_holder["box"] is None:
-                                status_holder["box"] = st.status(
-                                    f"🔧 Tool Executing: `{tool_name}` ...", expanded=True
-                                )
-                            else:
-                                status_holder["box"].update(
-                                    label=f"🔧 Tool Executing: `{tool_name}` ...",
-                                    state="running",
-                                    expanded=True,
-                                )
-
-                        if isinstance(message_chunk, AIMessage):
-                            yield extract_text_content(message_chunk.content)
+                        for node_name, node_update in event.items():
+                            if node_name == "retrieve":
+                                if status_holder["box"] is None:
+                                    status_holder["box"] = st.status("🔍 Retrieving matched context...", expanded=True)
+                                else:
+                                    status_holder["box"].update(label="🔍 Retrieved matching document context chunks.")
+                            elif node_name == "grade_documents":
+                                web_needed = node_update.get("web_search_needed", False)
+                                if web_needed:
+                                    status_holder["box"].update(label="⚠️ Retrieve graded irrelevant. Fallback to Web Search.")
+                                else:
+                                    status_holder["box"].update(label="✅ Chunks graded relevant to query.")
+                            elif node_name == "rewrite_query":
+                                status_holder["box"].update(label="✍️ Optimizing query search terms...")
+                            elif node_name == "web_search":
+                                status_holder["box"].update(label="🌐 Web search query executed successfully.")
+                            elif node_name == "generate":
+                                status_holder["box"].update(label="🤖 Draft answer generated.")
+                                gen = node_update.get("generation", "")
+                                if gen:
+                                    yield gen
+                            elif node_name == "deliver_response":
+                                status_holder["box"].update(label="🏁 Delivering finalized answer.")
                 except Exception as e:
                     yield f"⚠️ An error occurred: {str(e)}"
 
@@ -525,7 +533,7 @@ if user_input:
 
             if status_holder["box"] is not None:
                 status_holder["box"].update(
-                    label="✅ Tool finished execution", state="complete", expanded=False
+                    label="✅ Complete", state="complete", expanded=False
                 )
 
         # Save to session history
