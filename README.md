@@ -1,31 +1,30 @@
 <div align="center">
-
-# 🌊 StateFlow
-### Next-Generation Agentic AI Assistant (CRAG + Self-RAG Enabled)
-
-[![Live App](https://img.shields.io/badge/Live_App-Streamlit_Cloud-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://stateflow-by-yt.streamlit.app/)
+ 
+# 🌊 StateFlow: LangGraph CRAG & Self-RAG Architecture
+### Production-Grade Self-Correcting Agentic RAG Engine
+ 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![Streamlit](https://img.shields.io/badge/Frontend-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![LangGraph](https://img.shields.io/badge/Orchestrator-LangGraph-0052FF?style=for-the-badge&logo=python&logoColor=white)](https://langchain-ai.github.io/langgraph/)
 [![Gemini](https://img.shields.io/badge/LLM-Gemini_2.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://deepmind.google/technologies/gemini/)
 [![ChromaDB](https://img.shields.io/badge/Database-ChromaDB-FF6B35?style=for-the-badge&logo=databricks&logoColor=white)](https://www.trychroma.com/)
-[![LangSmith](https://img.shields.io/badge/Observability-LangSmith-F97316?style=for-the-badge)](https://smith.langchain.com)
-[![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
 [![RAGAS](https://img.shields.io/badge/Evaluation-RAGAS-8B5CF6?style=for-the-badge)](https://docs.ragas.io)
-
+[![Streamlit](https://img.shields.io/badge/Visualizer-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+ 
 <br/>
+ 
+**StateFlow** is a research and production-grade implementation of advanced agentic RAG design patterns using **LangGraph's cyclic state machine architecture**. It features self-correcting **Corrective RAG (CRAG)** and **Self-RAG** guardrails to grade context relevancy, dynamically rewrite search queries, fallback to web search, and audit responses for hallucinations before output. 
 
-**StateFlow** is a production-grade, agentic AI assistant built on **LangGraph's state machine architecture**, powered by **Google Gemini 2.5 Flash**, and styled as a pixel-perfect **ChatGPT Dark Mode clone** with advanced self-correcting **Corrective RAG (CRAG)** and **Self-RAG** guardrails.
-
+*As a secondary layer, it exposes a visual chatbot UI (styled as a premium ChatGPT Dark Mode clone) to trace active agent nodes and display real-time grader statuses.*
+ 
 ---
-
+ 
 ### 🌐 Live Deployment
-🚀 **Try the live app here:** **[StateFlow on Streamlit Community Cloud](https://stateflow-by-yt.streamlit.app/)**
-
+🚀 **Try the live visualization portal here:** **[StateFlow on Streamlit Community Cloud](https://stateflow-by-yt.streamlit.app/)**
+ 
 ---
-
-[🚀 Quick Start](#-setup--installation) · [📸 Demo](#-demo--interface) · [🏗️ Architecture](#️-system-architecture) · [✨ Features](#-features--capabilities) · [📊 RAGAS Evaluation](#-evaluation--ai-quality-ragas)
-
+ 
+[🏗️ Architecture](#️-system-architecture) · [🛡️ CRAG Details](#-corrective-rag-crag-integration) · [🎯 Self-RAG Details](#-self-rag-response-verification) · [📊 RAGAS Evaluation](#-evaluation--ai-quality-ragas) · [🚀 Quick Start](#-setup--installation)
+ 
 </div>
 
 ## 📸 Demo & Interface
