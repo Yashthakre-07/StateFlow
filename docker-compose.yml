@@ -22,7 +22,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: admin_secure_pass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin_secure_pass}
       POSTGRES_DB: stateflow
     ports:
       - "5432:5432"

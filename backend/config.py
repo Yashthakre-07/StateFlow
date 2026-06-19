@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     api_key: Optional[str] = Field(default=None, alias="API_KEY")
     gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
     google_api_key: Optional[str] = Field(default=None, alias="GOOGLE_API_KEY")
-    alpha_vantage_key: str = Field(default="C9PE94QUEW9VWGFM", alias="ALPHA_VANTAGE_KEY")
+    alpha_vantage_key: Optional[str] = Field(default=None, alias="ALPHA_VANTAGE_KEY")
     db_path: str = Field(default="chatbot.db", alias="DB_PATH")
     postgres_url: Optional[str] = Field(default=None, alias="POSTGRES_URL")
     chroma_host: Optional[str] = Field(default=None, alias="CHROMA_HOST")

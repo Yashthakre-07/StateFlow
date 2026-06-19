@@ -78,6 +78,8 @@ def get_stock_price(symbol: str) -> dict:
     """
     Fetch the latest stock price for a given ticker symbol.
     """
+    if not settings.alpha_vantage_key:
+        return {"error": "Alpha Vantage API Key is missing. Please set the ALPHA_VANTAGE_KEY environment variable."}
     url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={symbol}&apikey={settings.alpha_vantage_key}"
     try:
         r = requests.get(url)
