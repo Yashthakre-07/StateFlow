@@ -138,59 +138,119 @@ graph TD
                  [generate]       [rewrite_query]   [deliver_response] ──► END
 ```
 
+### 🗄️ PostgreSQL & ChromaDB — Enterprise Data Layer
+- **PostgreSQL (`PostgresSaver`)**: Primary production database checkpointer storing binary LangGraph state snapshots (thread history, active nodes, execution cycles).
+- **ChromaDB**: Handles vector embeddings and thread registry metadata namespaces.
+- **Persistent checkpointer**: Fallback to local SQLite occurs only in basic/local environments when `POSTGRES_URL` is omitted.
+ 
 ---
-
+ 
+## 🏗️ System Architecture
+ 
+```mermaid
+graph TD
+    User([👤 User]) <--> Streamlit[🖥️ Streamlit UI\nChatGPT Dark Mode Clone]
+ 
+    subgraph Frontend
+        Streamlit
+    end
+ 
+    subgraph Backend
+        App[⚙️ app.py\nLangGraph Orchestrator]
+        Postgres[🐘 PostgreSQL\nPostgresSaver Checkpointer]
+        Chroma[🗄️ ChromaDB\nVector Collections]
+        CRAG[🔍 crag.py\nCorrective RAG Grader]
+        SRAG[🎯 srag.py\nSelf-RAG Grounding Auditor]
+        RAG[🔍 rag.py\nHybrid RAG Pipeline]
+        LLM[🧠 Gemini 2.5 Flash]
+    end
+ 
+    Streamlit <-->|Thread Config| App
+    App <-->|Binary Graph State| Postgres
+    App <-->|Query Vector Searches| Chroma
+    App <-->|Invoke + Stream| LLM
+    App -->|Evaluates Document Relevance| CRAG
+    App -->|Evaluates Answer Utility| SRAG
+```
+ 
+### LangGraph State Machine Flow
+```
+                   START
+                     │
+                     ▼
+             [route_chat_start]
+             /               \
+       (RAG Path)         (Legacy Path)
+           /                   \
+    [retrieve]              [chat_node] ◄──► [tools]
+           │
+           ▼
+    [grade_documents] ────── (Irrelevant) ─────► [rewrite_query] ──► [web_search]
+           │                                                               │
+      (Relevant)                                                           │
+           │                                                               │
+           └───────────────────────► [generate] ◄──────────────────────────┘
+                                         │
+                                         ▼
+                               [grade_generation]
+                                 /       │      \
+                   (Hallucinated)   (Irrelevant)  (Useful)
+                       /                 │            \
+                 [generate]       [rewrite_query]   [deliver_response] ──► END
+```
+ 
+---
+ 
 ## 🚀 Setup & Installation
-
+ 
 ### Option A — Docker (Recommended)
-
+ 
 ```bash
 # Clone the repo
 git clone https://github.com/Yashthakre-07/StateFlow.git
 cd StateFlow
-
+ 
 # Configure environment
 cp .env.example .env
-# Edit .env with your API keys
-
+# Edit .env and supply your POSTGRES_URL & Gemini keys
+ 
 # Build & launch
 docker-compose up --build
 ```
-
-App runs at **http://localhost:8501** with persistent volumes for `chroma_db/` and `chatbot.db`.
-
+ 
 ---
-
+ 
 ### Option B — Local Development
-
+ 
 #### 1. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
-
+ 
 #### 2. Run the app
 ```bash
 streamlit run frontend/streamlit.py
 ```
-
+ 
 ---
-
+ 
 ## 🧰 Tech Stack
-
+ 
 | Layer | Technology | Purpose |
 |---|---|---|
 | **LLM** | Google Gemini 2.5 Flash | Primary language model |
 | **Orchestration** | LangGraph 0.2 | Cyclic agent state machine |
+| **Checkpointer** | PostgreSQL (`PostgresSaver`) | Production session persistence checkpointer |
 | **Frontend** | Streamlit 1.40 | ChatGPT-clone UI |
 | **Vector DB** | ChromaDB 1.5 | Thread registry + PDF embeddings |
 | **Evaluation** | RAGAS 0.2 | RAG quality measurement |
-
+ 
 ---
-
+ 
 <div align="center">
-
-Built with ❤️ using **LangGraph** · **ChromaDB** · **Gemini** · **Streamlit**
-
+ 
+Built with ❤️ using **LangGraph** · **PostgreSQL** · **ChromaDB** · **Gemini** · **Streamlit**
+ 
 ⭐ Star this repo if it helped you understand production LangGraph architecture!
-
+ 
 </div>
